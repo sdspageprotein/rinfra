@@ -1,0 +1,15 @@
+[package]
+name = "rinfra-derive"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Derive macros for rinfra (Entity, FromRow, ToRow)"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full", "extra-traits"] }

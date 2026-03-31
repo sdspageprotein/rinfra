@@ -1,0 +1,86 @@
+services:
+  # ---- Cluster example: master + proxy + web ----
+  master:
+    hostname: master
+    build:
+      context: .
+      args:
+        BINARY: master
+    ports:
+      - "8089:8089"
+      - "9000:9000"
+    volumes:
+      - ./rinfra-examples/config/master.example.yaml:/app/config/config.yaml:ro
+    environment:
+      RINFRA_PLUGINS__CLUSTER__CLUSTER_TOKEN: "${CLUSTER_TOKEN:-dev-cluster-token}"
+      RINFRA_ROOT_TOKEN: "${RINFRA_ROOT_TOKEN:-dev-admin-token}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8089/health"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+  proxy:
+    hostname: proxy
+    build:
+      context: .
+      args:
+        BINARY: proxy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./rinfra-examples/config/proxy.example.yaml:/app/config/config.yaml:ro
+    environment:
+      RINFRA_PLUGINS__CLUSTER__MAIN_ADDRESS: "master:9000"
+      RINFRA_PLUGINS__CLUSTER__CLUSTER_TOKEN: "${CLUSTER_TOKEN:-dev-cluster-token}"
+    depends_on:
+      master:
+        condition: service_healthy
+
+  web:
+    hostname: web
+    build:
+      context: .
+      args:
+        BINARY: web
+    volumes:
+      - ./rinfra-examples/config/web.example.yaml:/app/config/config.yaml:ro
+    environment:
+      RINFRA_PLUGINS__CLUSTER__MAIN_ADDRESS: "master:9000"
+      RINFRA_PLUGINS__CLUSTER__CLUSTER_TOKEN: "${CLUSTER_TOKEN:-dev-cluster-token}"
+    depends_on:
+      master:
+        condition: service_healthy
+
+  # ---- Infrastructure (optional, use: docker compose --profile infra up) ----
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["infra"]
+    environment:
+      POSTGRES_USER: rinfra
+      POSTGRES_PASSWORD: rinfra
+      POSTGRES_DB: rinfra
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rinfra"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["infra"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:

@@ -1,0 +1,13 @@
+target/
+.git/
+.gitignore
+.github/
+openspec/
+.cursor/
+.vscode/
+.idea/
+**/node_modules/
+docs/
+*.md
+!rinfra-admin/frontend/README.md
+rinfra-live/

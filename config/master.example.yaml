@@ -1,0 +1,150 @@
+# =============================================================================
+# rinfra cluster main node configuration
+# =============================================================================
+# The main node handles: cluster TCP listening, worker registration, and
+# health monitoring. It typically also hosts the HTTP admin panel and Admin API.
+
+app:
+  name: "rinfra-master"
+  version: "0.1.0"
+
+runtime:
+  shutdown:
+    grace_period_secs: 30
+    component_timeout_secs: 10
+
+plugins:
+
+  log:
+    stdout:
+      enabled: true
+      level: "info"
+      format: "pretty"
+    file:
+      enabled: true
+      path: "logs"
+      filename: "master.log"
+      rotation: "daily"
+      max_files: 30
+      level: "info"
+      format: "json"
+
+  # Main node typically exposes an HTTP management interface
+  net:
+    listeners:
+      - name: "main"
+        protocol: "http"
+        bind: "0.0.0.0:8080"
+        http:
+          middleware:
+            cors:
+              enabled: true
+              allow_origins: ["*"]
+            request_id:
+              enabled: true
+            timeout:
+              enabled: true
+              timeout_secs: 30
+            auth:
+              enabled: false
+              jwt_secret_env: "RINFRA_JWT_SECRET"
+              exclude_paths: ["/health", "/healthz", "/readyz", "/metrics"]
+            rate_limit:
+              enabled: false
+              key_strategy: "ip"
+
+  cluster:
+    mode: "cluster"
+    role: "main"
+    # Cluster TCP listen address (workers connect to this)
+    main_address: "0.0.0.0:7946"
+    # Cluster communication token, must be the same across all nodes
+    cluster_token: "change-me-in-production"
+    ping_interval_secs: 10
+
+  cache:
+    memory:
+      enabled: true
+      max_capacity: 10000
+      ttl_secs: 300
+    redis:
+      enabled: false
+      url: "redis://127.0.0.1:6379"
+
+  store:
+    postgres:
+      enabled: false
+      url: "postgres://localhost:5432/rinfra"
+      max_connections: 10
+      idle_timeout_secs: 300
+
+  mq:
+    backend: memory
+    memory:
+      channel_capacity: 1024
+
+  timer:
+    enabled: false
+    engine: simple
+    simple:
+      max_concurrent: 4
+
+  file_store:
+    enabled: false
+    backend: local
+    local:
+      root_dir: "data/files"
+
+  http_client:
+    enabled: false
+    timeout_secs: 30
+    user_agent: "rinfra/0.1.0"
+    max_retries: 0
+    retry_delay_ms: 500
+
+  lock:
+    enabled: false
+    backend: memory          # memory | redis
+    redis:
+      url: "redis://127.0.0.1:6379"
+      key_prefix: "rinfra:lock:"
+
+  config_watch:
+    enabled: false
+    poll_interval_secs: 5
+
+  audit:
+    enabled: false
+    backend: file
+    file:
+      path: "logs/audit.jsonl"
+
+  i18n:
+    enabled: false
+    dir: "i18n"
+    default_locale: "en"
+
+  metrics:
+    enabled: true
+    endpoint: "/metrics"
+
+  health:
+    enabled: true
+
+  telemetry:
+    enabled: false
+    otlp_endpoint: "http://localhost:4317"
+    sample_ratio: 1.0
+    export_timeout_secs: 10
+
+  admin:
+    enabled: true
+    static_dir: "rinfra-admin/frontend/dist"
+    auth:
+      enabled: false
+      token_file: "data/admin_tokens.json"
+      root_token_env: "RINFRA_ROOT_TOKEN"
+      exclude_paths:
+        - "/api/admin/health"
+
+business: {}

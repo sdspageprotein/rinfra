@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+members = [
+    "rinfra-core",
+    "rinfra-derive",
+    "rinfra-plugins",
+    "rinfra-admin/backend",
+    "rinfra-examples",
+]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "MIT"
+repository = "https://github.com/sdspageprotein/rinfra"
+description = "A modular Rust infrastructure framework with plugin-based architecture for building distributed services"

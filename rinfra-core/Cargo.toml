@@ -1,0 +1,24 @@
+[package]
+name = "rinfra-core"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Core skeleton traits for the rinfra unified backend infrastructure"
+
+[features]
+default = []
+axum = ["dep:axum"]
+
+[dependencies]
+async-trait = "0.1"
+axum = { version = "0.8", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["sync", "time"] }
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

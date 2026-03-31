@@ -1,0 +1,53 @@
+# Rust
+/target
+**/*.rs.bk
+
+# Node.js
+node_modules/
+dist/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Config (only *.example.yaml templates are committed)
+config/*.yaml
+!config/*.example.yaml
+rinfra-examples/config/*.yaml
+!rinfra-examples/config/*.example.yaml
+
+# Runtime data
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Admin auth tokens (generated at runtime)
+admin-tokens.json
+
+# Not yet open-sourced crates
+rinfra-live/
+
+# Docker
+docker-compose.override.yml
+
+# IDE
+.cursor/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# OpenSpec internal artifacts
+openspec/changes/archive/

@@ -1,0 +1,31 @@
+[package]
+name = "rinfra-examples"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Usage examples for rinfra"
+
+[lib]
+name = "rinfra_examples"
+
+[[bin]]
+name = "master"
+path = "src/bin/master.rs"
+
+[[bin]]
+name = "proxy"
+path = "src/bin/proxy.rs"
+
+[[bin]]
+name = "web"
+path = "src/bin/web.rs"
+
+[dependencies]
+rinfra-admin = { path = "../rinfra-admin/backend" }
+rinfra-core = { path = "../rinfra-core" }
+rinfra-plugins = { path = "../rinfra-plugins" }
+axum = "0.8"
+reqwest = "0.12"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"

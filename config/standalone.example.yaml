@@ -1,0 +1,199 @@
+# =============================================================================
+# rinfra standalone mode configuration
+# =============================================================================
+# Runs independently without joining a cluster. Suitable for development,
+# testing, and small-scale deployments.
+
+app:
+  name: "rinfra-app"
+  version: "0.1.0"
+
+runtime:
+  shutdown:
+    grace_period_secs: 30
+    component_timeout_secs: 10
+
+plugins:
+
+  log:
+    stdout:
+      enabled: true
+      level: "info"
+      format: "pretty"
+    file:
+      enabled: false
+      path: "logs"
+      filename: "app.log"
+      rotation: "daily"
+      max_files: 7
+      level: "info"
+      format: "json"
+
+  net:
+    listeners:
+      - name: "main"
+        protocol: "http"
+        bind: "0.0.0.0:8080"
+        http:
+          middleware:
+            cors:
+              enabled: true
+              allow_origins: ["*"]
+            request_id:
+              enabled: true
+            timeout:
+              enabled: true
+              timeout_secs: 30
+            auth:
+              enabled: false
+              jwt_secret_env: "RINFRA_JWT_SECRET"
+              exclude_paths: ["/health", "/healthz", "/readyz", "/metrics"]
+            rate_limit:
+              enabled: false
+              key_strategy: "ip"
+          ws:
+            enabled: false
+            ping_interval_secs: 30
+            ping_timeout_secs: 10
+
+      # Uncomment as needed:
+      # - name: "game-tcp"
+      #   protocol: "tcp"
+      #   bind: "0.0.0.0:9100"
+      #   tcp:
+      #     codec: "protobuf"
+      #     max_frame_size: 65536
+      #     pipeline:                  # Optional: byte transform pipeline
+      #       - transform: "lz4"      # Built-in LZ4 compression
+
+      # - name: "game-grpc"
+      #   protocol: "grpc"
+      #   bind: "0.0.0.0:9090"
+
+  store:
+    postgres:
+      enabled: false
+      url: "postgres://localhost:5432/rinfra"
+      max_connections: 10
+      idle_timeout_secs: 300
+
+  cache:
+    memory:
+      enabled: true
+      max_capacity: 10000
+      ttl_secs: 300
+    redis:
+      enabled: false
+      url: "redis://127.0.0.1:6379"
+    multilevel:
+      enabled: false
+      l1_max_capacity: 10000
+      l1_ttl_secs: 60
+
+  ratelimit:
+    memory:
+      enabled: false
+      requests_per_second: 100
+      burst_size: 200
+    redis:
+      enabled: false
+      url: "redis://127.0.0.1:6379"
+      requests_per_second: 100
+      burst_size: 200
+      window_secs: 1
+
+  crypto:
+    aesgcm:
+      enabled: false
+      key_env_var: "RINFRA_CRYPTO_KEY"
+    rotating:
+      enabled: false
+      rotation_interval_secs: 86400
+      max_key_versions: 5
+    file:
+      enabled: false
+      path: ""
+
+  mq:
+    backend: memory          # memory | nats | redis_streams | none
+    memory:
+      channel_capacity: 1024
+    # nats:
+    #   url: "nats://localhost:4222"
+    #   stream_name: rinfra
+    #   consumer_group: rinfra-workers
+    # redis_streams:
+    #   url: "redis://localhost:6379"
+    #   group_name: rinfra-workers
+
+  script:
+    wasm:
+      enabled: false
+      timeout_secs: 30
+      fuel_limit: 1000000
+
+  timer:
+    enabled: false
+    engine: simple
+    simple:
+      max_concurrent: 4
+
+  file_store:
+    enabled: false
+    backend: local
+    local:
+      root_dir: "data/files"
+
+  http_client:
+    enabled: false
+    timeout_secs: 30
+    user_agent: "rinfra/0.1.0"
+    max_retries: 0
+    retry_delay_ms: 500
+
+  lock:
+    enabled: false
+    backend: memory          # memory | redis
+    redis:
+      url: "redis://127.0.0.1:6379"
+      key_prefix: "rinfra:lock:"
+
+  config_watch:
+    enabled: false
+    poll_interval_secs: 5
+
+  audit:
+    enabled: false
+    backend: file
+    file:
+      path: "logs/audit.jsonl"
+
+  i18n:
+    enabled: false
+    dir: "i18n"
+    default_locale: "en"
+
+  metrics:
+    enabled: true
+    endpoint: "/metrics"
+
+  health:
+    enabled: true
+
+  telemetry:
+    enabled: false
+    otlp_endpoint: "http://localhost:4317"
+    sample_ratio: 1.0
+    export_timeout_secs: 10
+
+  admin:
+    enabled: true
+    static_dir: "rinfra-admin/frontend/dist"
+    auth:
+      enabled: false            # Recommended to enable in production
+      token_file: "data/admin_tokens.json"
+      root_token_env: "RINFRA_ROOT_TOKEN"
+      exclude_paths:
+        - "/api/admin/health"
+
+business: {}

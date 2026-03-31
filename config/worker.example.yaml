@@ -1,0 +1,155 @@
+# =============================================================================
+# rinfra cluster worker node configuration
+# =============================================================================
+# Workers connect to the main node to register and maintain heartbeat via
+# persistent TCP connections. Configure listeners (HTTP / TCP / gRPC / tRPC)
+# as needed; if none are configured, no ports will be opened.
+
+app:
+  name: "rinfra-worker"
+  version: "0.1.0"
+
+runtime:
+  shutdown:
+    grace_period_secs: 30
+    component_timeout_secs: 10
+
+plugins:
+
+  log:
+    stdout:
+      enabled: true
+      level: "info"
+      format: "pretty"
+    file:
+      enabled: true
+      path: "logs"
+      filename: "worker.log"
+      rotation: "daily"
+      max_files: 30
+      level: "info"
+      format: "json"
+
+  # Network listeners are fully configurable per business needs. Common scenarios:
+  net:
+    listeners:
+      # Scenario A: HTTP + WebSocket (gateway service)
+      # - name: "gate"
+      #   protocol: "http"
+      #   bind: "0.0.0.0:8080"
+      #   http:
+      #     middleware:
+      #       cors: { enabled: true, allow_origins: ["*"] }
+      #       timeout: { enabled: true, timeout_secs: 30 }
+      #     ws:
+      #       enabled: true
+      #       ping_interval_secs: 30
+      #       ping_timeout_secs: 10
+
+      # Scenario B: TCP game server (custom binary protocol)
+      # - name: "game-tcp"
+      #   protocol: "tcp"
+      #   bind: "0.0.0.0:9100"
+      #   tcp:
+      #     codec: "protobuf"
+      #     max_frame_size: 65536
+      #     pipeline:                  # Optional: byte transform pipeline (inbound decode in order, outbound encode in reverse)
+      #       - transform: "lz4"      # Built-in LZ4 compression
+
+      # Scenario C: gRPC microservice
+      # - name: "game-grpc"
+      #   protocol: "grpc"
+      #   bind: "0.0.0.0:9090"
+
+      # Scenario D: tRPC internal communication
+      # - name: "internal-trpc"
+      #   protocol: "trpc"
+      #   bind: "0.0.0.0:9300"
+
+  cluster:
+    mode: "cluster"
+    role: "worker"
+    # Node ID; auto-generated UUID if left empty
+    node_id: ""
+    # Cluster TCP address of the main node (worker connects to this)
+    main_address: "127.0.0.1:7946"
+    # Must match the main node's token
+    cluster_token: "change-me-in-production"
+    ping_interval_secs: 10
+
+  cache:
+    memory:
+      enabled: true
+      max_capacity: 10000
+      ttl_secs: 300
+
+  store:
+    postgres:
+      enabled: false
+      url: "postgres://localhost:5432/rinfra"
+      max_connections: 10
+      idle_timeout_secs: 300
+
+  mq:
+    backend: memory
+    memory:
+      channel_capacity: 1024
+
+  timer:
+    enabled: false
+    engine: simple
+    simple:
+      max_concurrent: 4
+
+  file_store:
+    enabled: false
+    backend: local
+    local:
+      root_dir: "data/files"
+
+  http_client:
+    enabled: false
+    timeout_secs: 30
+    user_agent: "rinfra/0.1.0"
+    max_retries: 0
+    retry_delay_ms: 500
+
+  lock:
+    enabled: false
+    backend: memory          # memory | redis
+    redis:
+      url: "redis://127.0.0.1:6379"
+      key_prefix: "rinfra:lock:"
+
+  config_watch:
+    enabled: false
+    poll_interval_secs: 5
+
+  audit:
+    enabled: false
+    backend: file
+    file:
+      path: "logs/audit.jsonl"
+
+  i18n:
+    enabled: false
+    dir: "i18n"
+    default_locale: "en"
+
+  metrics:
+    enabled: false
+
+  health:
+    enabled: true
+
+  telemetry:
+    enabled: false
+    otlp_endpoint: "http://localhost:4317"
+    sample_ratio: 1.0
+    export_timeout_secs: 10
+
+  # Workers typically don't need the admin panel
+  admin:
+    enabled: false
+
+business: {}

@@ -1,0 +1,55 @@
+# =============================================================================
+# rinfra example: master node
+# =============================================================================
+# Cluster coordinator. Manages node registration and health monitoring.
+# Workers connect to main_address for TCP cluster protocol.
+
+app:
+  name: example-master
+  version: 0.1.0
+
+runtime:
+  shutdown:
+    grace_period_secs: 10
+    component_timeout_secs: 5
+
+plugins:
+  log:
+    stdout:
+      enabled: true
+      level: info
+      format: pretty
+
+  net:
+    listeners:
+      - name: "main"
+        protocol: http
+        bind: "0.0.0.0:8089"
+        http:
+          middleware:
+            request_id:
+              enabled: true
+            timeout:
+              enabled: true
+              timeout_secs: 30
+
+  cluster:
+    mode: cluster
+    role: main
+    node_id: "master-1"
+    main_address: "0.0.0.0:9000"
+    cluster_token: "dev-cluster-token"
+    ping_interval_secs: 5
+
+  health:
+    enabled: true
+
+  admin:
+    enabled: true
+    static_dir: "/app/admin-ui"
+    auth:
+      enabled: true
+      token_file: "/app/data/admin-tokens.json"
+      root_token_env: "RINFRA_ROOT_TOKEN"
+
+business: {}

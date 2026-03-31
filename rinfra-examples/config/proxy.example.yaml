@@ -1,0 +1,50 @@
+# =============================================================================
+# rinfra example: proxy node
+# =============================================================================
+# Public-facing reverse proxy. Discovers web backends from the cluster node
+# list (synced via TCP from master) and forwards HTTP requests with round-robin.
+
+app:
+  name: example-proxy
+  version: 0.1.0
+
+runtime:
+  shutdown:
+    grace_period_secs: 10
+    component_timeout_secs: 5
+
+plugins:
+  log:
+    stdout:
+      enabled: true
+      level: info
+      format: pretty
+
+  net:
+    listeners:
+      - name: "main"
+        protocol: http
+        bind: "0.0.0.0:8080"
+        http:
+          middleware:
+            cors:
+              enabled: true
+              allow_origins: ["*"]
+            request_id:
+              enabled: true
+            timeout:
+              enabled: true
+              timeout_secs: 30
+
+  cluster:
+    mode: cluster
+    role: worker
+    node_id: "proxy-1"
+    main_address: "127.0.0.1:9000"
+    cluster_token: "dev-cluster-token"
+    ping_interval_secs: 5
+
+  health:
+    enabled: true
+
+business: {}
