@@ -45,7 +45,7 @@ rinfra/
 ├── rinfra-derive/        # 过程宏（Entity/FromRow/ToRow）
 ├── rinfra-admin/         # Admin 管理面板（前端 Vue 3 + 后端 Axum）
 ├── rinfra-examples/      # 示例应用（web/gate/game/admin）
-├── config/               # 配置文件模板（standalone/master/worker）
+├── config/               # 配置文件模板（standalone/main/worker）
 ├── docs/                 # 框架文档
 └── docker-compose.yml    # Docker 部署
 ```

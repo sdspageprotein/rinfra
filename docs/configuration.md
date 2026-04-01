@@ -9,8 +9,8 @@ Configuration templates for three deployment modes:
 | File | Mode | Description |
 |------|------|-------------|
 | `config/standalone.example.yaml` | Standalone | Not in a cluster; runs independently |
-| `config/master.example.yaml` | Cluster master | Manages worker registration and task dispatch |
-| `config/worker.example.yaml` | Cluster worker | Connects to the master to receive commands |
+| `config/main.example.yaml` | Cluster main | Manages worker registration and task dispatch |
+| `config/worker.example.yaml` | Cluster worker | Connects to the main node to receive commands |
 
 ---
 
@@ -200,7 +200,7 @@ plugins:
       max_key_versions: 5
     file:
       enabled: false
-      path: "keys/master.key"
+      path: "keys/main.key"
 ```
 
 ### plugins.lock — Distributed lock

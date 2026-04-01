@@ -1,7 +1,7 @@
 # =============================================================================
 # rinfra example: web backend node
 # =============================================================================
-# Serves a simple welcome page. Registers with the cluster master so that
+# Serves a simple welcome page. Registers with the cluster main node so that
 # the proxy can discover it via the cluster node list.
 
 app:

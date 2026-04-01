@@ -5,7 +5,7 @@
 # health monitoring. It typically also hosts the HTTP admin panel and Admin API.
 
 app:
-  name: "rinfra-master"
+  name: "rinfra-main"
   version: "0.1.0"
 
 runtime:
@@ -23,7 +23,7 @@ plugins:
     file:
       enabled: true
       path: "logs"
-      filename: "master.log"
+      filename: "main.log"
       rotation: "daily"
       max_files: 30
       level: "info"

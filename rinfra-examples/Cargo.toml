@@ -10,8 +10,8 @@ description = "Usage examples for rinfra"
 name = "rinfra_examples"
 
 [[bin]]
-name = "master"
-path = "src/bin/master.rs"
+name = "main"
+path = "src/bin/main_node.rs"
 
 [[bin]]
 name = "proxy"

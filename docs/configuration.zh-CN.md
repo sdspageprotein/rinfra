@@ -9,8 +9,8 @@ rinfra 使用 YAML 配置文件驱动所有行为。默认路径 `config/standal
 | 文件 | 模式 | 说明 |
 |------|------|------|
 | `config/standalone.example.yaml` | 单机 | 不加入集群，独立运行 |
-| `config/master.example.yaml` | 集群主节点 | 管理 worker 注册和任务分发 |
-| `config/worker.example.yaml` | 集群工作节点 | 连接 master 接收指令 |
+| `config/main.example.yaml` | 集群主节点 | 管理 worker 注册和任务分发 |
+| `config/worker.example.yaml` | 集群工作节点 | 连接 main 节点接收指令 |
 
 ---
 
@@ -200,7 +200,7 @@ plugins:
       max_key_versions: 5
     file:
       enabled: false
-      path: "keys/master.key"
+      path: "keys/main.key"
 ```
 
 ### plugins.lock — 分布式锁

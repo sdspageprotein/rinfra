@@ -2,7 +2,7 @@
 # rinfra example: proxy node
 # =============================================================================
 # Public-facing reverse proxy. Discovers web backends from the cluster node
-# list (synced via TCP from master) and forwards HTTP requests with round-robin.
+# list (synced via TCP from main node) and forwards HTTP requests with round-robin.
 
 app:
   name: example-proxy

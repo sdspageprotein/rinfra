@@ -16,7 +16,7 @@ struct LockEntry {
 /// Single-node in-memory distributed lock implementation.
 ///
 /// **Important**: this lock only works within a single process. It does NOT
-/// provide cross-node coordination in cluster (master/worker) mode.
+/// provide cross-node coordination in cluster (main/worker) mode.
 ///
 /// Suitable for:
 /// - `standalone` deployments

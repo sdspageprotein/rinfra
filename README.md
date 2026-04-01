@@ -45,7 +45,7 @@ rinfra/
 ├── rinfra-derive/        # Proc macros (Entity / FromRow / ToRow)
 ├── rinfra-admin/         # Admin panel (Vue 3 frontend + Axum backend)
 ├── rinfra-examples/      # Example apps (web / gate / game / admin)
-├── config/               # Config templates (standalone / master / worker)
+├── config/               # Config templates (standalone / main / worker)
 ├── docs/                 # Documentation
 └── docker-compose.yml    # Docker deployment
 ```

@@ -1,11 +1,11 @@
 # =============================================================================
-# rinfra example: master node
+# rinfra example: main node
 # =============================================================================
 # Cluster coordinator. Manages node registration and health monitoring.
 # Workers connect to main_address for TCP cluster protocol.
 
 app:
-  name: example-master
+  name: example-main
   version: 0.1.0
 
 runtime:
@@ -36,7 +36,7 @@ plugins:
   cluster:
     mode: cluster
     role: main
-    node_id: "master-1"
+    node_id: "main-1"
     main_address: "0.0.0.0:9000"
     cluster_token: "dev-cluster-token"
     ping_interval_secs: 5

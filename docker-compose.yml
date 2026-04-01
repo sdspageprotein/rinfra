@@ -1,16 +1,16 @@
 services:
-  # ---- Cluster example: master + proxy + web ----
-  master:
-    hostname: master
+  # ---- Cluster example: main + proxy + web ----
+  main:
+    hostname: main
     build:
       context: .
       args:
-        BINARY: master
+        BINARY: main
     ports:
       - "8089:8089"
       - "9000:9000"
     volumes:
-      - ./rinfra-examples/config/master.example.yaml:/app/config/config.yaml:ro
+      - ./rinfra-examples/config/main.example.yaml:/app/config/config.yaml:ro
     environment:
       RINFRA_PLUGINS__CLUSTER__CLUSTER_TOKEN: "${CLUSTER_TOKEN:-dev-cluster-token}"
       RINFRA_ROOT_TOKEN: "${RINFRA_ROOT_TOKEN:-dev-admin-token}"
@@ -32,10 +32,10 @@ services:
     volumes:
       - ./rinfra-examples/config/proxy.example.yaml:/app/config/config.yaml:ro
     environment:
-      RINFRA_PLUGINS__CLUSTER__MAIN_ADDRESS: "master:9000"
+      RINFRA_PLUGINS__CLUSTER__MAIN_ADDRESS: "main:9000"
       RINFRA_PLUGINS__CLUSTER__CLUSTER_TOKEN: "${CLUSTER_TOKEN:-dev-cluster-token}"
     depends_on:
-      master:
+      main:
         condition: service_healthy
 
   web:
@@ -47,10 +47,10 @@ services:
     volumes:
       - ./rinfra-examples/config/web.example.yaml:/app/config/config.yaml:ro
     environment:
-      RINFRA_PLUGINS__CLUSTER__MAIN_ADDRESS: "master:9000"
+      RINFRA_PLUGINS__CLUSTER__MAIN_ADDRESS: "main:9000"
       RINFRA_PLUGINS__CLUSTER__CLUSTER_TOKEN: "${CLUSTER_TOKEN:-dev-cluster-token}"
     depends_on:
-      master:
+      main:
         condition: service_healthy
 
   # ---- Infrastructure (optional, use: docker compose --profile infra up) ----

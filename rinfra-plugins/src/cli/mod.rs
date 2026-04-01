@@ -30,7 +30,7 @@ pub enum Commands {
     Plugin(PluginArgs),
     /// Local cache operations
     Cache(CacheArgs),
-    /// Cluster remote commands (sent to master via HTTP)
+    /// Cluster remote commands (sent to main node via HTTP)
     Cluster(ClusterArgs),
     /// Business-defined subcommands (handled by extra_commands callback)
     #[command(external_subcommand)]
@@ -124,7 +124,7 @@ pub enum CacheCommands {
 
 #[derive(Parser, Debug)]
 pub struct ClusterArgs {
-    /// Override target master address (default: from config cluster.main_address)
+    /// Override target main node address (default: from config cluster.main_address)
     #[arg(long, global = true)]
     pub target: Option<String>,
 
@@ -150,12 +150,12 @@ pub struct ClusterCacheArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum ClusterCacheCommands {
-    /// Get a value from cluster cache (via master)
+    /// Get a value from cluster cache (via main node)
     Get {
         /// Cache key to look up
         key: String,
     },
-    /// Flush cluster-wide cache (via master)
+    /// Flush cluster-wide cache (via main node)
     Flush {
         /// Skip confirmation
         #[arg(long)]
