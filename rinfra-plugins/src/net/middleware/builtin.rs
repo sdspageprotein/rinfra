@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
+#[cfg(feature = "metrics")]
 use metrics_exporter_prometheus::PrometheusHandle;
 use rinfra_core::config::{CorsConfig, MiddlewareConfig, MetricsConfig};
 use rinfra_core::error::{AppError, ErrorCode};
@@ -11,7 +12,9 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
-use super::{AuditState, AuthState, I18nErrorState, RateLimitState, RequestIdLayer};
+use super::{AuditState, I18nErrorState, RateLimitState, RequestIdLayer};
+#[cfg(feature = "jwt-auth")]
+use super::AuthState;
 
 fn downcast_router(router: Box<dyn Any>) -> Result<Router, AppError> {
     router.downcast::<Router>().map(|r| *r).map_err(|_| {
@@ -24,17 +27,20 @@ fn downcast_router(router: Box<dyn Any>) -> Result<Router, AppError> {
 
 // ── Metrics ──────────────────────────────────────────────────────────
 
+#[cfg(feature = "metrics")]
 pub struct MetricsHttpMiddleware {
     handle: PrometheusHandle,
     endpoint: String,
 }
 
+#[cfg(feature = "metrics")]
 impl MetricsHttpMiddleware {
     pub fn new(handle: PrometheusHandle, endpoint: String) -> Self {
         Self { handle, endpoint }
     }
 }
 
+#[cfg(feature = "metrics")]
 impl HttpMiddleware for MetricsHttpMiddleware {
     fn name(&self) -> &str {
         "metrics"
@@ -57,16 +63,19 @@ impl HttpMiddleware for MetricsHttpMiddleware {
 
 // ── Auth ─────────────────────────────────────────────────────────────
 
+#[cfg(feature = "jwt-auth")]
 pub struct AuthHttpMiddleware {
     state: Arc<AuthState>,
 }
 
+#[cfg(feature = "jwt-auth")]
 impl AuthHttpMiddleware {
     pub fn new(state: Arc<AuthState>) -> Self {
         Self { state }
     }
 }
 
+#[cfg(feature = "jwt-auth")]
 impl HttpMiddleware for AuthHttpMiddleware {
     fn name(&self) -> &str {
         "auth"
@@ -301,21 +310,24 @@ fn build_cors_layer(config: &CorsConfig) -> CorsLayer {
 pub fn builtin_http_middlewares(
     middleware_config: &MiddlewareConfig,
     metrics_config: &MetricsConfig,
-    metrics_handle: Option<PrometheusHandle>,
     telemetry_enabled: bool,
     app_state: &Arc<rinfra_core::appstate::AppState>,
 ) -> Vec<Arc<dyn HttpMiddleware>> {
     let mut mws: Vec<Arc<dyn HttpMiddleware>> = Vec::new();
 
-    if let Some(handle) = metrics_handle
-        && metrics_config.enabled
-    {
-        mws.push(Arc::new(MetricsHttpMiddleware::new(
-            handle,
-            metrics_config.endpoint.clone(),
-        )));
+    #[cfg(feature = "metrics")]
+    if metrics_config.enabled {
+        if let Some(handle) = app_state.get::<metrics_exporter_prometheus::PrometheusHandle>() {
+            mws.push(Arc::new(MetricsHttpMiddleware::new(
+                handle.clone(),
+                metrics_config.endpoint.clone(),
+            )));
+        }
     }
+    #[cfg(not(feature = "metrics"))]
+    let _ = metrics_config;
 
+    #[cfg(feature = "jwt-auth")]
     if middleware_config.auth.enabled {
         let secret =
             std::env::var(&middleware_config.auth.jwt_secret_env).unwrap_or_else(|_| {

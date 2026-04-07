@@ -1,3 +1,4 @@
+#[cfg(feature = "http-client")]
 pub mod client;
 pub mod handlers;
 pub mod runner;

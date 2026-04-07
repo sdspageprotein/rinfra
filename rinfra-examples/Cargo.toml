@@ -24,7 +24,7 @@ path = "src/bin/web.rs"
 [dependencies]
 rinfra-admin = { path = "../rinfra-admin/backend" }
 rinfra-core = { path = "../rinfra-core" }
-rinfra-plugins = { path = "../rinfra-plugins" }
+rinfra-plugins = { path = "../rinfra-plugins", features = ["memory-cache", "metrics", "http-client"] }
 axum = "0.8"
 reqwest = "0.12"
 tokio = { version = "1", features = ["full"] }

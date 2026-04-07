@@ -1,8 +1,13 @@
 # =============================================================================
-# rinfra cluster main node configuration
+# rinfra — Cluster Main Node Configuration
 # =============================================================================
-# The main node handles: cluster TCP listening, worker registration, and
-# health monitoring. It typically also hosts the HTTP admin panel and Admin API.
+# The main node is the cluster coordinator. It:
+#   - Listens on a TCP port for worker registration and heartbeats
+#   - Maintains a live registry of all connected worker nodes
+#   - Typically hosts the HTTP admin panel for cluster management
+#
+# For the full field reference, see standalone.example.yaml
+# =============================================================================
 
 app:
   name: "rinfra-main"
@@ -29,7 +34,6 @@ plugins:
       level: "info"
       format: "json"
 
-  # Main node typically exposes an HTTP management interface
   net:
     listeners:
       - name: "main"
@@ -53,14 +57,13 @@ plugins:
               enabled: false
               key_strategy: "ip"
 
+  # ── Cluster (Main Role) ─────────────────────────────────────────────────
   cluster:
-    mode: "cluster"
-    role: "main"
-    # Cluster TCP listen address (workers connect to this)
-    main_address: "0.0.0.0:7946"
-    # Cluster communication token, must be the same across all nodes
-    cluster_token: "change-me-in-production"
-    ping_interval_secs: 10
+    mode: "cluster"               # Must be "cluster" for main node
+    role: "main"                  # This node is the cluster coordinator
+    main_address: "0.0.0.0:7946" # TCP address to listen on for worker connections
+    cluster_token: "change-me-in-production"   # Shared secret (must match workers)
+    ping_interval_secs: 10        # Expected heartbeat interval from workers
 
   cache:
     memory:
@@ -79,19 +82,19 @@ plugins:
       idle_timeout_secs: 300
 
   mq:
-    backend: memory
+    backend: "memory"
     memory:
       channel_capacity: 1024
 
   timer:
     enabled: false
-    engine: simple
+    engine: "simple"
     simple:
       max_concurrent: 4
 
   file_store:
     enabled: false
-    backend: local
+    backend: "local"
     local:
       root_dir: "data/files"
 
@@ -104,7 +107,7 @@ plugins:
 
   lock:
     enabled: false
-    backend: memory          # memory | redis
+    backend: "memory"
     redis:
       url: "redis://127.0.0.1:6379"
       key_prefix: "rinfra:lock:"
@@ -115,7 +118,7 @@ plugins:
 
   audit:
     enabled: false
-    backend: file
+    backend: "file"
     file:
       path: "logs/audit.jsonl"
 
@@ -141,7 +144,7 @@ plugins:
     enabled: true
     static_dir: "rinfra-admin/frontend/dist"
     auth:
-      enabled: false
+      enabled: false              # Recommended: enable in production
       token_file: "data/admin_tokens.json"
       root_token_env: "RINFRA_ROOT_TOKEN"
       exclude_paths:

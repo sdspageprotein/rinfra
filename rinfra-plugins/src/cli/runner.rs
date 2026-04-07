@@ -8,18 +8,22 @@ use rinfra_core::cli::OutputFormat;
 use rinfra_core::config::RinfraConfig;
 use rinfra_core::net::tcp::TcpHandler;
 use rinfra_core::net::ws::WsHandler;
+#[cfg(feature = "grpc")]
 use tonic::transport::server::Router as TonicRouter;
 
+#[cfg(feature = "http-client")]
 use super::client::CliClient;
 use super::handlers;
 use super::{
-    CacheCommands, Cli, ClusterCacheCommands, ClusterCommands, Commands, ConfigCommands,
-    PluginCommands, ServerArgs, ServerCommands,
+    Cli, Commands, ConfigCommands, PluginCommands, ServerArgs, ServerCommands,
 };
+#[cfg(feature = "http-client")]
+use super::{CacheCommands, ClusterCacheCommands, ClusterCommands};
 use crate::Application;
 use rinfra_core::plugin::Plugin;
 
 type HttpRouterFn = Box<dyn FnOnce(Arc<AppState>) -> Router + Send>;
+#[cfg(feature = "grpc")]
 type GrpcServiceFn = Box<dyn FnOnce(TonicRouter) -> TonicRouter + Send>;
 type ExtraCmdHandler = Box<dyn FnOnce(&[String], &RinfraConfig, OutputFormat) -> bool + Send>;
 
@@ -49,6 +53,7 @@ pub struct RunOptions {
     http_routers: Vec<(String, HttpRouterFn)>,
     ws_handlers: Vec<(String, Arc<dyn WsHandler>)>,
     tcp_handlers: Vec<(String, Arc<dyn TcpHandler>)>,
+    #[cfg(feature = "grpc")]
     grpc_services: Vec<(String, GrpcServiceFn)>,
     extra_cmd_handler: Option<ExtraCmdHandler>,
     node_metadata: std::collections::HashMap<String, String>,
@@ -61,6 +66,7 @@ impl RunOptions {
             http_routers: Vec::new(),
             ws_handlers: Vec::new(),
             tcp_handlers: Vec::new(),
+            #[cfg(feature = "grpc")]
             grpc_services: Vec::new(),
             extra_cmd_handler: None,
             node_metadata: std::collections::HashMap::new(),
@@ -91,6 +97,7 @@ impl RunOptions {
         self
     }
 
+    #[cfg(feature = "grpc")]
     pub fn grpc_service(
         mut self,
         listener: &str,
@@ -167,32 +174,50 @@ pub async fn run_with_cli(cli: Cli, opts: RunOptions) {
             PluginCommands::List => handlers::handle_plugin_list(&config_path, format),
         },
         Some(Commands::Cache(args)) => {
-            let config = load_or_exit(&config_path);
-            let client = CliClient::for_local(&config);
-            match args.command {
-                CacheCommands::Get { key } => client.cache_get(&key, format).await,
-                CacheCommands::Flush => client.cache_flush(format).await,
+            #[cfg(feature = "http-client")]
+            {
+                let config = load_or_exit(&config_path);
+                let client = CliClient::for_local(&config);
+                match args.command {
+                    CacheCommands::Get { key } => client.cache_get(&key, format).await,
+                    CacheCommands::Flush => client.cache_flush(format).await,
+                }
+            }
+            #[cfg(not(feature = "http-client"))]
+            {
+                let _ = args;
+                eprintln!("Error: cache CLI requires the 'http-client' feature");
+                std::process::exit(1);
             }
         }
         Some(Commands::Cluster(args)) => {
-            let config = load_or_exit(&config_path);
-            let client = CliClient::for_cluster(&config, args.target.as_deref());
-            match args.command {
-                ClusterCommands::Nodes => client.cluster_nodes(format).await,
-                ClusterCommands::Info => client.cluster_info(format).await,
-                ClusterCommands::Cache(cache_args) => match cache_args.command {
-                    ClusterCacheCommands::Get { key } => {
-                        client.cluster_cache_get(&key, format).await;
-                    }
-                    ClusterCacheCommands::Flush { yes } => {
-                        if !yes {
-                            eprintln!("Warning: this will flush cache on all cluster nodes.");
-                            eprintln!("Use --yes to confirm.");
-                            std::process::exit(1);
+            #[cfg(feature = "http-client")]
+            {
+                let config = load_or_exit(&config_path);
+                let client = CliClient::for_cluster(&config, args.target.as_deref());
+                match args.command {
+                    ClusterCommands::Nodes => client.cluster_nodes(format).await,
+                    ClusterCommands::Info => client.cluster_info(format).await,
+                    ClusterCommands::Cache(cache_args) => match cache_args.command {
+                        ClusterCacheCommands::Get { key } => {
+                            client.cluster_cache_get(&key, format).await;
                         }
-                        client.cluster_cache_flush(format).await;
-                    }
-                },
+                        ClusterCacheCommands::Flush { yes } => {
+                            if !yes {
+                                eprintln!("Warning: this will flush cache on all cluster nodes.");
+                                eprintln!("Use --yes to confirm.");
+                                std::process::exit(1);
+                            }
+                            client.cluster_cache_flush(format).await;
+                        }
+                    },
+                }
+            }
+            #[cfg(not(feature = "http-client"))]
+            {
+                let _ = args;
+                eprintln!("Error: cluster CLI requires the 'http-client' feature");
+                std::process::exit(1);
             }
         }
         Some(Commands::External(args)) => {
@@ -255,6 +280,7 @@ async fn run_server(config_path: &str, opts: RunOptions) {
     for (listener, h) in opts.tcp_handlers {
         builder = builder.tcp_handler(&listener, h);
     }
+    #[cfg(feature = "grpc")]
     for (listener, f) in opts.grpc_services {
         builder = builder.grpc_service(&listener, f);
     }

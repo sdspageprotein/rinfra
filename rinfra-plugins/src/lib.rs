@@ -7,6 +7,7 @@ pub mod config;
 pub mod crypto;
 pub mod health;
 pub mod log;
+#[cfg(feature = "metrics")]
 pub mod metrics;
 pub mod mq;
 pub mod net;
@@ -17,34 +18,57 @@ pub mod runtime;
 pub mod audit;
 pub mod config_watch;
 pub mod file_store;
+#[cfg(feature = "http-client")]
 pub mod http_client;
 pub mod i18n;
 pub mod lock;
 pub mod resilience;
 pub mod script;
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 pub mod store;
 pub mod telemetry;
+#[cfg(feature = "timer")]
 pub mod timer;
 
-pub use cache::{MemoryCache, MultilevelCache, RedisCache};
+#[cfg(feature = "memory-cache")]
+pub use cache::MemoryCache;
+pub use cache::MultilevelCache;
+#[cfg(feature = "redis")]
+pub use cache::RedisCache;
 pub use cluster::{ClusterConnection, ClusterServer, ConnectedRegistry, ConnectionHandle};
-pub use codec::{JsonCodec, MsgpackCodec, ProtobufCodec};
+#[cfg(feature = "codec-protobuf")]
+pub use codec::ProtobufCodec;
+#[cfg(feature = "codec-msgpack")]
+pub use codec::MsgpackCodec;
+pub use codec::JsonCodec;
+#[cfg(feature = "compress")]
 pub use compress::{GzipCompressor, Lz4Compressor};
-pub use crypto::{AesGcmCrypto, EnvKeyProvider, FileKeyProvider, RotatingKeyProvider};
+pub use crypto::{EnvKeyProvider, FileKeyProvider, RotatingKeyProvider};
+#[cfg(feature = "crypto")]
+pub use crypto::AesGcmCrypto;
 pub use mq::InMemoryBus;
 pub use plugin::builtin_plugins;
-pub use ratelimit::{MemoryRateLimiter, RedisRateLimiter};
+#[cfg(feature = "redis")]
+pub use ratelimit::RedisRateLimiter;
+pub use ratelimit::MemoryRateLimiter;
 pub use net::TcpServer;
-pub use rpc::{GrpcServer, TrpcClient, TrpcServer};
+#[cfg(feature = "grpc")]
+pub use rpc::GrpcServer;
+pub use rpc::{TrpcClient, TrpcServer};
 pub use cli::runner::{run, RunOptions};
 pub use audit::FileAuditLogger;
 pub use config_watch::FileConfigWatcher;
 pub use i18n::FileI18n;
-pub use lock::{InMemoryLock, RedisLock};
+pub use lock::InMemoryLock;
+#[cfg(feature = "redis")]
+pub use lock::RedisLock;
 pub use resilience::{with_circuit_breaker, with_retry, with_retry_and_breaker};
 pub use runtime::{Application, ClusterNodeList};
 pub use script::{JsEngine, PythonEngine, WasmEngine};
-pub use store::{GenericRepository, PostgresStore};
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
+pub use store::GenericRepository;
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
+pub use store::PostgresStore;
 #[cfg(feature = "mysql")]
 pub use store::mysql::MysqlStore;
 #[cfg(feature = "sqlite")]

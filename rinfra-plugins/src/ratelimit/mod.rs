@@ -1,4 +1,6 @@
+#[cfg(feature = "redis")]
 mod redis_limiter;
+#[cfg(feature = "redis")]
 pub use redis_limiter::RedisRateLimiter;
 
 use std::collections::HashMap;

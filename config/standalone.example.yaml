@@ -1,199 +1,375 @@
 # =============================================================================
-# rinfra standalone mode configuration
+# rinfra — Complete Configuration Reference (Standalone Mode)
 # =============================================================================
+# This file documents EVERY configuration field supported by rinfra.
 # Runs independently without joining a cluster. Suitable for development,
-# testing, and small-scale deployments.
+# testing, and small-scale single-node deployments.
+#
+# Environment variable overrides:
+#   Any field can be overridden via env vars using the pattern:
+#     RINFRA_<SECTION>__<FIELD>    (double underscore as separator)
+#   Examples:
+#     RINFRA_APP__NAME=my-app
+#     RINFRA_PLUGINS__LOG__STDOUT__LEVEL=debug
+#     RINFRA_PLUGINS__CLUSTER__MODE=cluster
+#
+# Feature flags:
+#   Some plugins require Cargo features to be enabled at compile time.
+#   If a feature is disabled, the corresponding plugin config is still parsed
+#   but the plugin will not be loaded.
+#   Features: postgres, mysql, sqlite, redis, grpc, http-client, jwt-auth,
+#             metrics, telemetry, crypto, compress, timer, codec-msgpack,
+#             codec-protobuf, nats, redis-mq, memory-cache
+# =============================================================================
 
+# ─── Application ─────────────────────────────────────────────────────────────
 app:
-  name: "rinfra-app"
-  version: "0.1.0"
+  name: "rinfra-app"              # Application name, used in logs and metrics
+  version: "0.1.0"               # Application version
 
+# ─── Runtime ─────────────────────────────────────────────────────────────────
 runtime:
   shutdown:
-    grace_period_secs: 30
-    component_timeout_secs: 10
+    grace_period_secs: 30         # Max seconds to wait for WebSocket connections to drain
+    component_timeout_secs: 10    # Max seconds for each plugin to complete shutdown
 
+# ─── Plugins ─────────────────────────────────────────────────────────────────
 plugins:
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Logging                                               (always available)
+  # ─────────────────────────────────────────────────────────────────────────
   log:
     stdout:
-      enabled: true
-      level: "info"
-      format: "pretty"
+      enabled: true               # Enable console logging
+      level: "info"               # Log level: trace | debug | info | warn | error
+      format: "pretty"            # Output format: pretty | json | compact
     file:
-      enabled: false
-      path: "logs"
-      filename: "app.log"
-      rotation: "daily"
-      max_files: 7
-      level: "info"
-      format: "json"
+      enabled: false              # Enable file logging
+      path: "logs"                # Directory to store log files
+      filename: "app.log"         # Log file name
+      rotation: "daily"           # Rotation policy: daily | hourly | never
+      max_files: 7                # Max number of rotated files to keep
+      level: "info"               # Log level for file output
+      format: "json"              # Output format: pretty | json | compact
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Network Listeners                                     (always available)
+  # ─────────────────────────────────────────────────────────────────────────
+  # Supports multiple listeners of different protocols.
+  # Each listener needs a unique name and bind address.
   net:
     listeners:
-      - name: "main"
-        protocol: "http"
-        bind: "0.0.0.0:8080"
+      - name: "main"              # Unique listener identifier
+        protocol: "http"          # Protocol: http | tcp | grpc | trpc
+        bind: "0.0.0.0:8080"     # Bind address (host:port)
+
+        # HTTP-specific options (only when protocol = "http")
         http:
+          # ── HTTP Middleware Pipeline ──
           middleware:
             cors:
-              enabled: true
-              allow_origins: ["*"]
-            request_id:
-              enabled: true
-            timeout:
-              enabled: true
-              timeout_secs: 30
-            auth:
-              enabled: false
-              jwt_secret_env: "RINFRA_JWT_SECRET"
-              exclude_paths: ["/health", "/healthz", "/readyz", "/metrics"]
-            rate_limit:
-              enabled: false
-              key_strategy: "ip"
-          ws:
-            enabled: false
-            ping_interval_secs: 30
-            ping_timeout_secs: 10
+              enabled: true               # Enable CORS headers
+              allow_origins: ["*"]        # Allowed origins. ["*"] = any origin
 
-      # Uncomment as needed:
+            request_id:
+              enabled: true               # Inject X-Request-Id header into each request
+
+            timeout:
+              enabled: true               # Enable request timeout
+              timeout_secs: 30            # Seconds before request is terminated (503)
+
+            auth:                                           # [feature: jwt-auth]
+              enabled: false              # Enable JWT authentication middleware
+              jwt_secret_env: "RINFRA_JWT_SECRET"   # Env var holding the JWT signing secret
+              exclude_paths:              # Paths excluded from JWT auth check
+                - "/health"
+                - "/healthz"
+                - "/readyz"
+                - "/metrics"
+
+            rate_limit:
+              enabled: false              # Enable HTTP rate limiting middleware
+              key_strategy: "ip"          # Rate limit key: "ip" (per client IP)
+
+          # ── WebSocket Options ──
+          ws:
+            enabled: false                # Enable WebSocket upgrade on this listener
+            ping_interval_secs: 30        # Server-side WebSocket ping interval
+            ping_timeout_secs: 10         # Time to wait for pong before closing
+
+      # ── TCP Listener Example ──
+      # TCP listeners use length-delimited framing with optional codec and
+      # byte transform pipeline.
       # - name: "game-tcp"
       #   protocol: "tcp"
       #   bind: "0.0.0.0:9100"
       #   tcp:
-      #     codec: "protobuf"
-      #     max_frame_size: 65536
-      #     pipeline:                  # Optional: byte transform pipeline
-      #       - transform: "lz4"      # Built-in LZ4 compression
+      #     codec: "protobuf"            # Optional: codec hint (informational)
+      #     max_frame_size: 65536        # Max bytes per TCP frame (default: 65536)
+      #     pipeline:                    # Byte transform pipeline (ordered)
+      #       - transform: "lz4"        # Built-in: "lz4", "gzip" [feature: compress]
+      #         # options: {}           # Transform-specific options (JSON object)
 
-      # - name: "game-grpc"
+      # ── gRPC Listener Example ──                        [feature: grpc]
+      # - name: "rpc-grpc"
       #   protocol: "grpc"
       #   bind: "0.0.0.0:9090"
 
+      # ── tRPC Listener Example ──
+      # Lightweight TCP-based RPC protocol (built-in, no extra features needed).
+      # - name: "internal-trpc"
+      #   protocol: "trpc"
+      #   bind: "0.0.0.0:9300"
+      #   tcp:
+      #     max_frame_size: 65536
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Cluster                                               (always available)
+  # ─────────────────────────────────────────────────────────────────────────
+  # Clustering uses persistent TCP connections. The main node runs a TCP
+  # server; worker nodes connect to register, exchange heartbeats, and
+  # sync the live node list.
+  cluster:
+    mode: "standalone"            # Mode: standalone | cluster
+    # role: "worker"              # Role: main | worker (only used when mode=cluster)
+    # node_id: ""                 # Worker node ID; auto-generated UUID if empty
+    # main_address: ""            # TCP address of the main node (workers connect here)
+    # cluster_token: ""           # Shared secret for cluster authentication
+    # ping_interval_secs: 10      # Heartbeat interval in seconds
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Database Store                [feature: postgres / mysql / sqlite]
+  # ─────────────────────────────────────────────────────────────────────────
+  # Only one store backend can be active at a time. If multiple are enabled,
+  # the last one wins (postgres → mysql → sqlite in plugin order).
   store:
-    postgres:
+    postgres:                                              # [feature: postgres]
+      enabled: false              # Enable PostgreSQL store
+      required: false             # If true, startup fails when connection fails
+      url: "postgres://localhost:5432/rinfra"   # Connection URL
+      max_connections: 10         # Max connections in the pool
+      idle_timeout_secs: 300      # Close idle connections after this many seconds
+      # migrations_path: null     # Path to SQL migration files (null = skip migrations)
+      slow_query_threshold_ms: 200  # Queries slower than this are logged as warnings
+
+    mysql:                                                 # [feature: mysql]
       enabled: false
-      url: "postgres://localhost:5432/rinfra"
+      required: false
+      url: "mysql://root:root@localhost:3306/rinfra"
       max_connections: 10
       idle_timeout_secs: 300
+      slow_query_threshold_ms: 200
 
+    sqlite:                                                # [feature: sqlite]
+      enabled: false
+      required: false
+      path: "rinfra.db"          # SQLite database file path
+      max_connections: 10
+      slow_query_threshold_ms: 200
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Cache                         [feature: memory-cache / redis]
+  # ─────────────────────────────────────────────────────────────────────────
   cache:
-    memory:
-      enabled: true
-      max_capacity: 10000
-      ttl_secs: 300
-    redis:
-      enabled: false
-      url: "redis://127.0.0.1:6379"
-    multilevel:
-      enabled: false
-      l1_max_capacity: 10000
-      l1_ttl_secs: 60
+    memory:                                                # [feature: memory-cache]
+      enabled: true               # Enable in-memory cache (moka)
+      max_capacity: 10000         # Max number of cache entries
+      ttl_secs: 300               # Default TTL in seconds
 
+    redis:                                                 # [feature: redis]
+      enabled: false              # Enable Redis cache
+      required: false             # If true, startup fails when connection fails
+      url: "redis://127.0.0.1:6379"   # Redis connection URL
+
+    multilevel:                           # [feature: memory-cache + redis]
+      enabled: false              # Enable multilevel cache (L1=memory, L2=redis)
+      l1_max_capacity: 10000      # L1 (memory) max entries
+      l1_ttl_secs: 60             # L1 TTL (should be shorter than L2 / redis TTL)
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Rate Limiting                                         (always available)
+  # ─────────────────────────────────────────────────────────────────────────
+  # Token bucket algorithm. Only one backend active at a time.
   ratelimit:
     memory:
-      enabled: false
-      requests_per_second: 100
-      burst_size: 200
-    redis:
-      enabled: false
+      enabled: false              # Enable in-memory rate limiter
+      requests_per_second: 100    # Token refill rate per second
+      burst_size: 200             # Max burst tokens
+
+    redis:                                                 # [feature: redis]
+      enabled: false              # Enable Redis-backed distributed rate limiter
+      required: false             # If true, startup fails when connection fails
       url: "redis://127.0.0.1:6379"
       requests_per_second: 100
       burst_size: 200
-      window_secs: 1
+      window_secs: 1              # Sliding window size in seconds
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Cryptography                  [feature: crypto for AES-GCM]
+  # ─────────────────────────────────────────────────────────────────────────
   crypto:
-    aesgcm:
-      enabled: false
-      key_env_var: "RINFRA_CRYPTO_KEY"
+    aesgcm:                                                # [feature: crypto]
+      enabled: false              # Enable AES-256-GCM encryption
+      key_env_var: "RINFRA_CRYPTO_KEY"   # Env var holding the 32-byte hex key
+
     rotating:
-      enabled: false
-      rotation_interval_secs: 86400
-      max_key_versions: 5
+      enabled: false              # Enable rotating versioned key provider
+      rotation_interval_secs: 86400   # Key rotation interval (default: 24 hours)
+      max_key_versions: 5         # Max old key versions to retain
+
     file:
-      enabled: false
-      path: ""
+      enabled: false              # Enable file-based key provider
+      path: ""                    # Path to the key file
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Message Queue                 [feature: nats / redis-mq]
+  # ─────────────────────────────────────────────────────────────────────────
   mq:
-    backend: memory          # memory | nats | redis_streams | none
-    memory:
-      channel_capacity: 1024
-    # nats:
-    #   url: "nats://localhost:4222"
-    #   stream_name: rinfra
-    #   consumer_group: rinfra-workers
-    # redis_streams:
-    #   url: "redis://localhost:6379"
-    #   group_name: rinfra-workers
+    backend: "memory"             # Backend: memory | nats | redis_streams | none
 
+    memory:
+      channel_capacity: 1024      # In-memory channel buffer size per topic
+
+    # nats:                                                # [feature: nats]
+    #   url: "nats://localhost:4222"       # NATS server URL
+    #   stream_name: "rinfra"             # JetStream stream name
+    #   consumer_group: "rinfra-workers"  # Consumer group name
+    #   max_reconnects: null              # Max reconnect attempts (null = unlimited)
+    #   connect_timeout_secs: 5           # Connection timeout
+
+    # redis_streams:                                       # [feature: redis-mq]
+    #   url: "redis://127.0.0.1:6379"     # Redis URL
+    #   group_name: "rinfra-workers"      # Consumer group name
+    #   consumer_name: ""                 # Consumer name (auto: hostname or UUID)
+    #   max_len: null                     # Max stream length (null = unlimited)
+    #   block_ms: 2000                    # XREADGROUP block timeout (ms)
+    #   batch_size: 10                    # Messages to read per batch
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Script Engines                                        (always available)
+  # ─────────────────────────────────────────────────────────────────────────
   script:
     wasm:
-      enabled: false
-      timeout_secs: 30
-      fuel_limit: 1000000
+      enabled: false              # Enable WASM script engine
+      timeout_secs: 30            # Execution timeout per script call
+      fuel_limit: 1000000         # WASM fuel (instruction) limit
 
+    python:
+      enabled: false              # Enable Python subprocess script engine
+      timeout_secs: 30            # Execution timeout per script call
+      venv_path: ""               # Python virtualenv path (empty = system Python)
+
+    js:
+      enabled: false              # Enable JavaScript subprocess script engine
+      timeout_secs: 30            # Execution timeout per script call
+      max_heap_mb: 64             # Max V8 heap size in MB
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Timer / Scheduler             [feature: timer]
+  # ─────────────────────────────────────────────────────────────────────────
   timer:
-    enabled: false
-    engine: simple
+    enabled: false                # Enable timer engine
+    engine: "simple"              # Engine type: simple
     simple:
-      max_concurrent: 4
+      max_concurrent: 4           # Max concurrent timer tasks
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # File Store                                            (always available)
+  # ─────────────────────────────────────────────────────────────────────────
   file_store:
-    enabled: false
-    backend: local
+    enabled: false                # Enable file store
+    backend: "local"              # Backend: local
     local:
-      root_dir: "data/files"
+      root_dir: "data/files"     # Root directory for stored files
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # HTTP Client                   [feature: http-client]
+  # ─────────────────────────────────────────────────────────────────────────
   http_client:
-    enabled: false
-    timeout_secs: 30
-    user_agent: "rinfra/0.1.0"
-    max_retries: 0
-    retry_delay_ms: 500
+    enabled: false                # Enable built-in HTTP client
+    timeout_secs: 30              # Default request timeout
+    user_agent: "rinfra/0.1.0"   # User-Agent header value
+    max_retries: 0                # Number of retries on failure (0 = no retry)
+    retry_delay_ms: 500           # Delay between retries (ms)
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Distributed Lock                                      (always available)
+  # ─────────────────────────────────────────────────────────────────────────
   lock:
-    enabled: false
-    backend: memory          # memory | redis
-    redis:
-      url: "redis://127.0.0.1:6379"
-      key_prefix: "rinfra:lock:"
+    enabled: false                # Enable distributed lock
+    backend: "memory"             # Backend: memory | redis
+    redis:                                                 # [feature: redis]
+      url: "redis://127.0.0.1:6379"    # Redis URL
+      key_prefix: "rinfra:lock:"       # Key prefix for lock entries
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Config Hot-Reload                                     (always available)
+  # ─────────────────────────────────────────────────────────────────────────
   config_watch:
-    enabled: false
-    poll_interval_secs: 5
+    enabled: false                # Enable config file hot-reload watcher
+    poll_interval_secs: 5         # File change polling interval
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Audit Logging                                         (always available)
+  # ─────────────────────────────────────────────────────────────────────────
   audit:
-    enabled: false
-    backend: file
+    enabled: false                # Enable audit logging
+    backend: "file"               # Backend: file
     file:
-      path: "logs/audit.jsonl"
+      path: "logs/audit.jsonl"   # Audit log file path (JSONL format)
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Internationalization (i18n)                           (always available)
+  # ─────────────────────────────────────────────────────────────────────────
   i18n:
-    enabled: false
-    dir: "i18n"
-    default_locale: "en"
+    enabled: false                # Enable i18n support
+    dir: "i18n"                   # Directory containing locale YAML files
+    default_locale: "en"          # Default locale code (e.g., en, zh, ja)
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Prometheus Metrics            [feature: metrics]
+  # ─────────────────────────────────────────────────────────────────────────
   metrics:
-    enabled: true
-    endpoint: "/metrics"
+    enabled: true                 # Enable Prometheus metrics collection & endpoint
+    endpoint: "/metrics"          # HTTP path to expose Prometheus metrics
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Health Check                                          (always available)
+  # ─────────────────────────────────────────────────────────────────────────
+  # Exposes /healthz (liveness) and /readyz (readiness) endpoints.
+  # Readiness checks all registered health checkers (store, cache, mq, etc.)
   health:
-    enabled: true
+    enabled: true                 # Enable health check endpoints
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # OpenTelemetry                 [feature: telemetry]
+  # ─────────────────────────────────────────────────────────────────────────
   telemetry:
-    enabled: false
-    otlp_endpoint: "http://localhost:4317"
-    sample_ratio: 1.0
-    export_timeout_secs: 10
+    enabled: false                # Enable OpenTelemetry trace export
+    otlp_endpoint: "http://localhost:4317"   # OTLP gRPC collector endpoint
+    sample_ratio: 1.0             # Trace sampling ratio (0.0 to 1.0)
+    export_timeout_secs: 10       # Export batch timeout
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Admin Panel                                           (always available)
+  # ─────────────────────────────────────────────────────────────────────────
+  # Built-in web management UI and REST API.
+  # Provides: cluster node list, plugin status, cache operations, metrics.
   admin:
-    enabled: true
-    static_dir: "rinfra-admin/frontend/dist"
+    enabled: true                 # Enable admin panel (serves static files + API)
+    static_dir: "rinfra-admin/frontend/dist"   # Path to admin frontend build
+
     auth:
-      enabled: false            # Recommended to enable in production
-      token_file: "data/admin_tokens.json"
-      root_token_env: "RINFRA_ROOT_TOKEN"
-      exclude_paths:
+      enabled: false              # Enable admin API token authentication
+      token_file: "data/admin_tokens.json"   # File storing admin API tokens
+      root_token_env: "RINFRA_ROOT_TOKEN"    # Env var for bootstrap root token
+      exclude_paths:              # Paths excluded from admin auth check
         - "/api/admin/health"
 
+# ─── Business Configuration ──────────────────────────────────────────────────
+# Extension point for application-specific configuration.
+# The framework does not interpret this section. Projects can deserialize it
+# into their own config struct via:
+#   serde_json::from_value::<MyConfig>(config.business.clone())
 business: {}

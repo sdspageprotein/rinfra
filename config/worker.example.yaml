@@ -1,9 +1,17 @@
 # =============================================================================
-# rinfra cluster worker node configuration
+# rinfra — Cluster Worker Node Configuration
 # =============================================================================
-# Workers connect to the main node to register and maintain heartbeat via
-# persistent TCP connections. Configure listeners (HTTP / TCP / gRPC / tRPC)
-# as needed; if none are configured, no ports will be opened.
+# Worker nodes connect to the main node via persistent TCP to:
+#   - Register themselves with node_id and metadata
+#   - Send periodic heartbeats (ping/pong)
+#   - Receive live node list updates from the main node
+#
+# Each worker can expose any combination of listeners (HTTP, TCP, gRPC, tRPC).
+# The listener endpoints are automatically reported to the main node for
+# service discovery by other nodes.
+#
+# For the full field reference, see standalone.example.yaml
+# =============================================================================
 
 app:
   name: "rinfra-worker"
@@ -30,10 +38,21 @@ plugins:
       level: "info"
       format: "json"
 
-  # Network listeners are fully configurable per business needs. Common scenarios:
+  # ── Network Listeners ───────────────────────────────────────────────────
+  # Configure based on the worker's role. Common patterns:
   net:
     listeners:
-      # Scenario A: HTTP + WebSocket (gateway service)
+      # Pattern A: HTTP API server
+      # - name: "api"
+      #   protocol: "http"
+      #   bind: "0.0.0.0:8080"
+      #   http:
+      #     middleware:
+      #       cors: { enabled: true, allow_origins: ["*"] }
+      #       timeout: { enabled: true, timeout_secs: 30 }
+      #       auth: { enabled: true, jwt_secret_env: "RINFRA_JWT_SECRET" }
+
+      # Pattern B: HTTP + WebSocket (gateway service)
       # - name: "gate"
       #   protocol: "http"
       #   bind: "0.0.0.0:8080"
@@ -46,36 +65,36 @@ plugins:
       #       ping_interval_secs: 30
       #       ping_timeout_secs: 10
 
-      # Scenario B: TCP game server (custom binary protocol)
+      # Pattern C: TCP game server
       # - name: "game-tcp"
       #   protocol: "tcp"
       #   bind: "0.0.0.0:9100"
       #   tcp:
       #     codec: "protobuf"
       #     max_frame_size: 65536
-      #     pipeline:                  # Optional: byte transform pipeline (inbound decode in order, outbound encode in reverse)
-      #       - transform: "lz4"      # Built-in LZ4 compression
+      #     pipeline:
+      #       - transform: "lz4"
 
-      # Scenario C: gRPC microservice
-      # - name: "game-grpc"
+      # Pattern D: gRPC microservice                       [feature: grpc]
+      # - name: "rpc-grpc"
       #   protocol: "grpc"
       #   bind: "0.0.0.0:9090"
 
-      # Scenario D: tRPC internal communication
+      # Pattern E: tRPC internal communication
       # - name: "internal-trpc"
       #   protocol: "trpc"
       #   bind: "0.0.0.0:9300"
+      #   tcp:
+      #     max_frame_size: 65536
 
+  # ── Cluster (Worker Role) ───────────────────────────────────────────────
   cluster:
-    mode: "cluster"
-    role: "worker"
-    # Node ID; auto-generated UUID if left empty
-    node_id: ""
-    # Cluster TCP address of the main node (worker connects to this)
-    main_address: "127.0.0.1:7946"
-    # Must match the main node's token
-    cluster_token: "change-me-in-production"
-    ping_interval_secs: 10
+    mode: "cluster"               # Must be "cluster" for worker node
+    role: "worker"                # This node connects to the main coordinator
+    node_id: ""                   # Unique node ID (auto-generated UUID if empty)
+    main_address: "127.0.0.1:7946"   # TCP address of the main node
+    cluster_token: "change-me-in-production"   # Must match the main node's token
+    ping_interval_secs: 10        # Heartbeat interval to the main node
 
   cache:
     memory:
@@ -91,19 +110,19 @@ plugins:
       idle_timeout_secs: 300
 
   mq:
-    backend: memory
+    backend: "memory"
     memory:
       channel_capacity: 1024
 
   timer:
     enabled: false
-    engine: simple
+    engine: "simple"
     simple:
       max_concurrent: 4
 
   file_store:
     enabled: false
-    backend: local
+    backend: "local"
     local:
       root_dir: "data/files"
 
@@ -116,7 +135,7 @@ plugins:
 
   lock:
     enabled: false
-    backend: memory          # memory | redis
+    backend: "memory"
     redis:
       url: "redis://127.0.0.1:6379"
       key_prefix: "rinfra:lock:"
@@ -127,7 +146,7 @@ plugins:
 
   audit:
     enabled: false
-    backend: file
+    backend: "file"
     file:
       path: "logs/audit.jsonl"
 
@@ -137,7 +156,7 @@ plugins:
     default_locale: "en"
 
   metrics:
-    enabled: false
+    enabled: false                # Workers typically don't need metrics endpoint
 
   health:
     enabled: true

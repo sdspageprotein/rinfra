@@ -1,29 +1,57 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+#[cfg(feature = "redis")]
 use rinfra_core::cache::Cache;
-use rinfra_core::crypto::{Crypto, KeyProvider, VersionedKeyProvider};
-use rinfra_core::error::{AppError, ErrorCode};
+#[cfg(feature = "crypto")]
+use rinfra_core::crypto::Crypto;
+use rinfra_core::crypto::{KeyProvider, VersionedKeyProvider};
+use rinfra_core::error::AppError;
+#[cfg(any(
+    feature = "postgres", feature = "mysql", feature = "sqlite",
+    feature = "redis", feature = "crypto",
+))]
+use rinfra_core::error::ErrorCode;
 use rinfra_core::plugin::{Plugin, PluginContext, PluginManifest};
 use rinfra_core::script::{ScriptEngine, ScriptEngineRegistry};
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 use rinfra_core::store::{DbConnection, Store};
 use rinfra_core::audit::AuditLogger;
 use rinfra_core::config::watch::ConfigWatcher;
 use rinfra_core::file_store::FileStore;
+#[cfg(feature = "http-client")]
 use rinfra_core::http_client::HttpClient;
 use rinfra_core::i18n::I18n;
 use rinfra_core::lock::DistributedLock;
 use rinfra_core::mq::MessageBus;
+#[cfg(feature = "http-client")]
 use rinfra_core::resilience::{CircuitBreaker, CircuitBreakerConfig};
+#[cfg(feature = "timer")]
 use rinfra_core::timer::{TimerEngine, TimerEngineRegistry};
-use tracing::{info, warn};
+use tracing::info;
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite", feature = "redis"))]
+use tracing::warn;
 
-use crate::cache::{MemoryCache, MultilevelCache, RedisCache};
-use crate::codec::{JsonCodec, MsgpackCodec, ProtobufCodec};
-use crate::crypto::{AesGcmCrypto, EnvKeyProvider, FileKeyProvider, RotatingKeyProvider};
+#[cfg(feature = "memory-cache")]
+use crate::cache::MemoryCache;
+#[cfg(all(feature = "memory-cache", feature = "redis"))]
+use crate::cache::MultilevelCache;
+#[cfg(feature = "redis")]
+use crate::cache::RedisCache;
+use crate::codec::JsonCodec;
+#[cfg(feature = "codec-msgpack")]
+use crate::codec::MsgpackCodec;
+#[cfg(feature = "codec-protobuf")]
+use crate::codec::ProtobufCodec;
+#[cfg(feature = "crypto")]
+use crate::crypto::AesGcmCrypto;
+use crate::crypto::{EnvKeyProvider, FileKeyProvider, RotatingKeyProvider};
 use crate::mq::InMemoryBus;
-use crate::ratelimit::{MemoryRateLimiter, RedisRateLimiter};
+use crate::ratelimit::MemoryRateLimiter;
+#[cfg(feature = "redis")]
+use crate::ratelimit::RedisRateLimiter;
 use crate::script::{JsEngine, PythonEngine, WasmEngine};
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 use crate::store::PostgresStore;
 #[cfg(feature = "mysql")]
 use crate::store::mysql::MysqlStore;
@@ -34,10 +62,12 @@ use crate::store::sqlite::SqliteStore;
 // Cache plugins
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "memory-cache")]
 pub struct MemoryCachePlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(feature = "memory-cache")]
 impl MemoryCachePlugin {
     pub fn new() -> Self {
         Self {
@@ -46,6 +76,7 @@ impl MemoryCachePlugin {
     }
 }
 
+#[cfg(feature = "memory-cache")]
 #[async_trait]
 impl Plugin for MemoryCachePlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -64,10 +95,12 @@ impl Plugin for MemoryCachePlugin {
     }
 }
 
+#[cfg(feature = "redis")]
 pub struct RedisCachePlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(feature = "redis")]
 impl RedisCachePlugin {
     pub fn new() -> Self {
         Self {
@@ -76,6 +109,7 @@ impl RedisCachePlugin {
     }
 }
 
+#[cfg(feature = "redis")]
 #[async_trait]
 impl Plugin for RedisCachePlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -115,10 +149,12 @@ impl Plugin for RedisCachePlugin {
     }
 }
 
+#[cfg(all(feature = "memory-cache", feature = "redis"))]
 pub struct MultilevelCachePlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(all(feature = "memory-cache", feature = "redis"))]
 impl MultilevelCachePlugin {
     pub fn new() -> Self {
         Self {
@@ -131,6 +167,7 @@ impl MultilevelCachePlugin {
     }
 }
 
+#[cfg(all(feature = "memory-cache", feature = "redis"))]
 #[async_trait]
 impl Plugin for MultilevelCachePlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -181,10 +218,12 @@ impl Plugin for MultilevelCachePlugin {
 // Store plugin
 // ---------------------------------------------------------------------------
 
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 pub struct PostgresStorePlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 impl PostgresStorePlugin {
     pub fn new() -> Self {
         Self {
@@ -193,6 +232,7 @@ impl PostgresStorePlugin {
     }
 }
 
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 #[async_trait]
 impl Plugin for PostgresStorePlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -513,10 +553,12 @@ impl Plugin for JsonCodecPlugin {
     }
 }
 
+#[cfg(feature = "codec-msgpack")]
 pub struct MsgpackCodecPlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(feature = "codec-msgpack")]
 impl MsgpackCodecPlugin {
     pub fn new() -> Self {
         Self {
@@ -525,6 +567,7 @@ impl MsgpackCodecPlugin {
     }
 }
 
+#[cfg(feature = "codec-msgpack")]
 #[async_trait]
 impl Plugin for MsgpackCodecPlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -537,10 +580,12 @@ impl Plugin for MsgpackCodecPlugin {
     }
 }
 
+#[cfg(feature = "codec-protobuf")]
 pub struct ProtobufCodecPlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(feature = "codec-protobuf")]
 impl ProtobufCodecPlugin {
     pub fn new() -> Self {
         Self {
@@ -549,6 +594,7 @@ impl ProtobufCodecPlugin {
     }
 }
 
+#[cfg(feature = "codec-protobuf")]
 #[async_trait]
 impl Plugin for ProtobufCodecPlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -565,10 +611,12 @@ impl Plugin for ProtobufCodecPlugin {
 // gRPC plugin
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "grpc")]
 pub struct GrpcPlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(feature = "grpc")]
 impl GrpcPlugin {
     pub fn new() -> Self {
         Self {
@@ -577,6 +625,7 @@ impl GrpcPlugin {
     }
 }
 
+#[cfg(feature = "grpc")]
 #[async_trait]
 impl Plugin for GrpcPlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -619,10 +668,12 @@ impl Plugin for TrpcPlugin {
 // Redis Rate Limiter plugin
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "redis")]
 pub struct RedisRateLimiterPlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(feature = "redis")]
 impl RedisRateLimiterPlugin {
     pub fn new() -> Self {
         Self {
@@ -635,6 +686,7 @@ impl RedisRateLimiterPlugin {
     }
 }
 
+#[cfg(feature = "redis")]
 #[async_trait]
 impl Plugin for RedisRateLimiterPlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -772,10 +824,12 @@ impl Plugin for RotatingKeyProviderPlugin {
     }
 }
 
+#[cfg(feature = "crypto")]
 pub struct AesGcmCryptoPlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(feature = "crypto")]
 impl AesGcmCryptoPlugin {
     pub fn new() -> Self {
         Self {
@@ -784,6 +838,7 @@ impl AesGcmCryptoPlugin {
     }
 }
 
+#[cfg(feature = "crypto")]
 #[async_trait]
 impl Plugin for AesGcmCryptoPlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -929,16 +984,19 @@ impl Plugin for JsScriptPlugin {
 // Timer
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "timer")]
 fn ensure_timer_registry(ctx: &mut PluginContext) {
     if ctx.get::<TimerEngineRegistry>().is_none() {
         ctx.set(TimerEngineRegistry::new());
     }
 }
 
+#[cfg(feature = "timer")]
 pub struct SimpleTimerPlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(feature = "timer")]
 impl SimpleTimerPlugin {
     pub fn new() -> Self {
         Self {
@@ -947,6 +1005,7 @@ impl SimpleTimerPlugin {
     }
 }
 
+#[cfg(feature = "timer")]
 #[async_trait]
 impl Plugin for SimpleTimerPlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -1016,10 +1075,12 @@ impl Plugin for LocalFileStorePlugin {
 // HttpClient
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "http-client")]
 pub struct HttpClientPlugin {
     manifest: PluginManifest,
 }
 
+#[cfg(feature = "http-client")]
 impl HttpClientPlugin {
     pub fn new() -> Self {
         Self {
@@ -1028,6 +1089,7 @@ impl HttpClientPlugin {
     }
 }
 
+#[cfg(feature = "http-client")]
 #[async_trait]
 impl Plugin for HttpClientPlugin {
     fn manifest(&self) -> &PluginManifest {
@@ -1086,6 +1148,7 @@ impl Plugin for LockPlugin {
         }
 
         let lock: Arc<dyn DistributedLock> = match cfg.backend.as_str() {
+            #[cfg(feature = "redis")]
             "redis" => {
                 let redis_lock = crate::lock::RedisLock::new(&cfg.redis);
                 redis_lock.connect().await?;
@@ -1233,57 +1296,84 @@ impl Plugin for I18nPlugin {
 /// Returns the default set of built-in plugins in the recommended order.
 /// Ordering matters: KeyProvider plugins must come before AesGcm which depends on them.
 pub fn builtin_plugins() -> Vec<Box<dyn Plugin>> {
-    vec![
-        // Codecs
-        Box::new(JsonCodecPlugin::new()),
-        Box::new(MsgpackCodecPlugin::new()),
-        Box::new(ProtobufCodecPlugin::new()),
-        // Cache
-        Box::new(MemoryCachePlugin::new()),
-        Box::new(RedisCachePlugin::new()),
-        Box::new(MultilevelCachePlugin::new()),
-        // Messaging
-        Box::new(InMemoryBusPlugin::new()),
-        #[cfg(feature = "nats")]
-        Box::new(NatsBusPlugin::new()),
-        #[cfg(feature = "redis-mq")]
-        Box::new(RedisStreamBusPlugin::new()),
-        // Store
-        Box::new(PostgresStorePlugin::new()),
-        #[cfg(feature = "mysql")]
-        Box::new(MysqlStorePlugin::new()),
-        #[cfg(feature = "sqlite")]
-        Box::new(SqliteStorePlugin::new()),
-        // Rate limiting
-        Box::new(MemoryRateLimiterPlugin::new()),
-        Box::new(RedisRateLimiterPlugin::new()),
-        // Crypto (key providers first, then crypto impl)
-        Box::new(EnvKeyProviderPlugin::new()),
-        Box::new(FileKeyProviderPlugin::new()),
-        Box::new(RotatingKeyProviderPlugin::new()),
-        Box::new(AesGcmCryptoPlugin::new()),
-        // Script engines
-        Box::new(WasmScriptPlugin::new()),
-        Box::new(PythonScriptPlugin::new()),
-        Box::new(JsScriptPlugin::new()),
-        // Network servers
-        Box::new(GrpcPlugin::new()),
-        Box::new(TrpcPlugin::new()),
-        // FileStore
-        Box::new(LocalFileStorePlugin::new()),
-        // HttpClient
-        Box::new(HttpClientPlugin::new()),
-        // Lock (before Timer so timer can use distributed lock)
-        Box::new(LockPlugin::new()),
-        // Timer (after Lock so it can integrate cluster-safe scheduling)
-        Box::new(SimpleTimerPlugin::new()),
-        // Audit (before ConfigWatch so watcher can use audit logger)
-        Box::new(FileAuditPlugin::new()),
-        // i18n
-        Box::new(I18nPlugin::new()),
-        // ConfigWatch (after audit + i18n so it can integrate with them)
-        Box::new(ConfigWatchPlugin::new()),
-    ]
+    let mut plugins: Vec<Box<dyn Plugin>> = Vec::new();
+
+    // Codecs
+    plugins.push(Box::new(JsonCodecPlugin::new()));
+    #[cfg(feature = "codec-msgpack")]
+    plugins.push(Box::new(MsgpackCodecPlugin::new()));
+    #[cfg(feature = "codec-protobuf")]
+    plugins.push(Box::new(ProtobufCodecPlugin::new()));
+
+    // Cache
+    #[cfg(feature = "memory-cache")]
+    plugins.push(Box::new(MemoryCachePlugin::new()));
+    #[cfg(feature = "redis")]
+    plugins.push(Box::new(RedisCachePlugin::new()));
+    #[cfg(all(feature = "memory-cache", feature = "redis"))]
+    plugins.push(Box::new(MultilevelCachePlugin::new()));
+
+    // Messaging
+    plugins.push(Box::new(InMemoryBusPlugin::new()));
+    #[cfg(feature = "nats")]
+    plugins.push(Box::new(NatsBusPlugin::new()));
+    #[cfg(feature = "redis-mq")]
+    plugins.push(Box::new(RedisStreamBusPlugin::new()));
+
+    // Store
+    #[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
+    plugins.push(Box::new(PostgresStorePlugin::new()));
+    #[cfg(feature = "mysql")]
+    plugins.push(Box::new(MysqlStorePlugin::new()));
+    #[cfg(feature = "sqlite")]
+    plugins.push(Box::new(SqliteStorePlugin::new()));
+
+    // Rate limiting
+    plugins.push(Box::new(MemoryRateLimiterPlugin::new()));
+    #[cfg(feature = "redis")]
+    plugins.push(Box::new(RedisRateLimiterPlugin::new()));
+
+    // Crypto (key providers first, then crypto impl)
+    plugins.push(Box::new(EnvKeyProviderPlugin::new()));
+    plugins.push(Box::new(FileKeyProviderPlugin::new()));
+    plugins.push(Box::new(RotatingKeyProviderPlugin::new()));
+    #[cfg(feature = "crypto")]
+    plugins.push(Box::new(AesGcmCryptoPlugin::new()));
+
+    // Script engines
+    plugins.push(Box::new(WasmScriptPlugin::new()));
+    plugins.push(Box::new(PythonScriptPlugin::new()));
+    plugins.push(Box::new(JsScriptPlugin::new()));
+
+    // Network servers
+    #[cfg(feature = "grpc")]
+    plugins.push(Box::new(GrpcPlugin::new()));
+    plugins.push(Box::new(TrpcPlugin::new()));
+
+    // FileStore
+    plugins.push(Box::new(LocalFileStorePlugin::new()));
+
+    // HttpClient
+    #[cfg(feature = "http-client")]
+    plugins.push(Box::new(HttpClientPlugin::new()));
+
+    // Lock (before Timer so timer can use distributed lock)
+    plugins.push(Box::new(LockPlugin::new()));
+
+    // Timer (after Lock so it can integrate cluster-safe scheduling)
+    #[cfg(feature = "timer")]
+    plugins.push(Box::new(SimpleTimerPlugin::new()));
+
+    // Audit (before ConfigWatch so watcher can use audit logger)
+    plugins.push(Box::new(FileAuditPlugin::new()));
+
+    // i18n
+    plugins.push(Box::new(I18nPlugin::new()));
+
+    // ConfigWatch (after audit + i18n so it can integrate with them)
+    plugins.push(Box::new(ConfigWatchPlugin::new()));
+
+    plugins
 }
 
 #[cfg(test)]
@@ -1344,6 +1434,7 @@ mod tests {
         assert!(state.ratelimiter().is_some());
     }
 
+    #[cfg(feature = "grpc")]
     #[tokio::test]
     async fn test_grpc_plugin_noop() {
         let cfg = RinfraConfig::default();
@@ -1352,8 +1443,8 @@ mod tests {
     }
 
     #[test]
-    fn test_builtin_plugins_count() {
+    fn test_builtin_plugins_nonempty() {
         let plugins = builtin_plugins();
-        assert_eq!(plugins.len(), 26);
+        assert!(!plugins.is_empty());
     }
 }

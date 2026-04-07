@@ -1,8 +1,10 @@
+#[cfg(feature = "crypto")]
 mod aesgcm;
 mod env_key_provider;
 mod file_provider;
 mod rotating_provider;
 
+#[cfg(feature = "crypto")]
 pub use aesgcm::AesGcmCrypto;
 pub use env_key_provider::EnvKeyProvider;
 pub use file_provider::FileKeyProvider;
