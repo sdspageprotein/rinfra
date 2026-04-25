@@ -2,13 +2,14 @@
 
 # Registry SDK 接入指南
 
-本文档说明如何使用 Java、Python、TypeScript SDK 把非 Rust 应用注册到 rinfra main 节点。
+本文档说明如何使用 Java、Python、TypeScript、Go SDK 把非 Rust 应用注册到 rinfra main 节点。
 
 ## 适用范围
 
 - Java：`io.rinfra:rinfra-registry-sdk`（Netty + Maven）
 - Python：`rinfra-registry-sdk`
 - TypeScript：`@rinfra/registry-sdk`（Node.js）
+- Go：`github.com/rinfra/rinfra/sdks/registry-go/registrysdk`
 
 ## 最小配置
 

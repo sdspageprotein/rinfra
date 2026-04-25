@@ -2,13 +2,14 @@
 
 # Registry SDK Integration Guide
 
-This guide explains how Java, Python, and TypeScript applications can register to an rinfra main node.
+This guide explains how Java, Python, TypeScript, and Go applications can register to an rinfra main node.
 
 ## Scope
 
 - Java: `io.rinfra:rinfra-registry-sdk` (Netty + Maven)
 - Python: `rinfra-registry-sdk`
 - TypeScript: `@rinfra/registry-sdk` (Node.js)
+- Go: `github.com/rinfra/rinfra/sdks/registry-go/registrysdk`
 
 ## Minimal Configuration
 

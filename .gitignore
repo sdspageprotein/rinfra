@@ -59,3 +59,5 @@ sdks/registry-python/**/__pycache__/
 sdks/registry-python/**/*.pyc
 sdks/registry-typescript/node_modules/
 sdks/registry-typescript/dist/
+sdks/registry-go/bin/
+sdks/registry-go/coverage.out
