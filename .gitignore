@@ -51,3 +51,11 @@ Desktop.ini
 
 # OpenSpec internal artifacts
 openspec/changes/archive/
+
+# SDK artifacts
+sdks/registry-java/target/
+sdks/registry-python/.venv/
+sdks/registry-python/**/__pycache__/
+sdks/registry-python/**/*.pyc
+sdks/registry-typescript/node_modules/
+sdks/registry-typescript/dist/

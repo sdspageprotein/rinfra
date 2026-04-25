@@ -1,0 +1,64 @@
+name: SDK Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Release target"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - java
+          - python
+          - typescript
+
+jobs:
+  publish-java:
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'java' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Build Java SDK
+        run: mvn -f sdks/registry-java/pom.xml -B test package
+      - name: Publish to Maven Central (placeholder)
+        run: echo "Configure OSSRH credentials and gpg signing before enabling deploy"
+
+  publish-python:
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'python' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build Python SDK
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build sdks/registry-python
+      - name: Publish to PyPI (placeholder)
+        run: echo "Configure PYPI_API_TOKEN and twine upload before enabling publish"
+
+  publish-typescript:
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'typescript' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: sdks/registry-typescript/package.json
+      - name: Build TypeScript SDK
+        run: |
+          cd sdks/registry-typescript
+          npm install
+          npm run build
+      - name: Publish to npm (placeholder)
+        run: echo "Configure NPM_TOKEN before enabling npm publish"
