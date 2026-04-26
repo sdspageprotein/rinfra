@@ -10,6 +10,7 @@
 - Python：`rinfra-registry-sdk`
 - TypeScript：`@rinfra/registry-sdk`（Node.js）
 - Go：`github.com/rinfra/rinfra/sdks/registry-go/registrysdk`
+- TypeScript Browser SDK 不在 V1 范围内（仅支持 Node.js）。
 
 ## 最小配置
 
@@ -81,6 +82,34 @@
 - `start()`：连接 main、发送 Register、进入心跳。
 - `stop()`：发送 Deregister、关闭连接。
 - `listNodes()`/`list_nodes()`：主动拉取当前节点列表。
+
+## 统一 RPC API（V1）
+
+四语言 SDK 对齐以下 RPC 抽象：
+
+- `Resolver`：从 registry 数据中解析可调用 endpoint。
+  - 默认协议过滤：`grpc`
+  - 元数据过滤：`service.name`、`service.version`、`service.zone`
+- `RpcInvoker`：支持按 endpoint 调用 Unary，也支持按服务名（resolve + invoke）
+- `CallOptions`：统一超时、重试策略、调用元数据
+- `RpcError` / `RpcErrorCode`：统一错误模型
+
+### TypeScript 仅 Node.js
+
+- TypeScript SDK 仅支持 Node.js 运行时。
+- V1 显式不支持 Browser 运行时。
+
+### gRPC 错误码映射
+
+- `DEADLINE_EXCEEDED` -> `timeout`
+- `UNAVAILABLE` -> `unavailable`
+- `NOT_FOUND` -> `not_found`
+- `INVALID_ARGUMENT` -> `invalid_argument`
+- `INTERNAL` -> `internal`
+- `UNAUTHENTICATED` -> `unauthenticated`
+- `PERMISSION_DENIED` -> `permission_denied`
+- `CANCELLED` -> `cancelled`
+- 其他 -> `unknown`
 
 ## 兼容性
 

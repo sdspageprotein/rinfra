@@ -23,6 +23,12 @@ type Endpoint struct {
 	Address  string `json:"address"`
 }
 
+type NodeInfo struct {
+	ID        string            `json:"id"`
+	Endpoints []Endpoint        `json:"endpoints"`
+	Metadata  map[string]string `json:"metadata"`
+}
+
 type Registration struct {
 	NodeID    string            `json:"-"`
 	Endpoints []Endpoint        `json:"-"`
@@ -36,6 +42,101 @@ type Config struct {
 	RegisterTimeout  time.Duration
 	InitialReconnect time.Duration
 	MaxReconnect     time.Duration
+}
+
+type RpcErrorCode string
+
+const (
+	RpcErrorCodeTimeout          RpcErrorCode = "timeout"
+	RpcErrorCodeUnavailable      RpcErrorCode = "unavailable"
+	RpcErrorCodeNotFound         RpcErrorCode = "not_found"
+	RpcErrorCodeInvalidArgument  RpcErrorCode = "invalid_argument"
+	RpcErrorCodeInternal         RpcErrorCode = "internal"
+	RpcErrorCodeUnauthenticated  RpcErrorCode = "unauthenticated"
+	RpcErrorCodePermissionDenied RpcErrorCode = "permission_denied"
+	RpcErrorCodeCancelled        RpcErrorCode = "cancelled"
+	RpcErrorCodeUnknown          RpcErrorCode = "unknown"
+)
+
+type RpcError struct {
+	Code    RpcErrorCode
+	Message string
+	Cause   error
+	Service string
+	Method  string
+}
+
+func (e *RpcError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Cause == nil {
+		return e.Message
+	}
+	return fmt.Sprintf("%s: %v", e.Message, e.Cause)
+}
+
+func (e *RpcError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Cause
+}
+
+type RetryPolicy struct {
+	MaxAttempts int
+	BaseDelay   time.Duration
+	MaxDelay    time.Duration
+	Jitter      bool
+	RetryOn     map[RpcErrorCode]bool
+}
+
+func (p RetryPolicy) withDefaults() RetryPolicy {
+	if p.MaxAttempts <= 0 {
+		p.MaxAttempts = 3
+	}
+	if p.BaseDelay <= 0 {
+		p.BaseDelay = 100 * time.Millisecond
+	}
+	if p.MaxDelay <= 0 {
+		p.MaxDelay = time.Second
+	}
+	if len(p.RetryOn) == 0 {
+		p.RetryOn = map[RpcErrorCode]bool{
+			RpcErrorCodeUnavailable: true,
+			RpcErrorCodeTimeout:     true,
+		}
+	}
+	return p
+}
+
+type ResolveOptions struct {
+	Protocol       string
+	Service        string
+	ServiceVersion string
+	Zone           string
+	PreferHealthy  bool
+}
+
+func (o ResolveOptions) withDefaults() ResolveOptions {
+	if strings.TrimSpace(o.Protocol) == "" {
+		o.Protocol = "grpc"
+	}
+	return o
+}
+
+type CallOptions struct {
+	Timeout time.Duration
+	Retry   RetryPolicy
+	Headers map[string]string
+}
+
+func (o CallOptions) withDefaults() CallOptions {
+	if o.Timeout <= 0 {
+		o.Timeout = 2 * time.Second
+	}
+	o.Retry = o.Retry.withDefaults()
+	return o
 }
 
 func (c *Config) fillDefaults() {

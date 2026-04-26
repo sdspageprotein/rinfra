@@ -10,6 +10,7 @@ This guide explains how Java, Python, TypeScript, and Go applications can regist
 - Python: `rinfra-registry-sdk`
 - TypeScript: `@rinfra/registry-sdk` (Node.js)
 - Go: `github.com/rinfra/rinfra/sdks/registry-go/registrysdk`
+- TypeScript Browser SDK is out of scope in V1 (Node.js only).
 
 ## Minimal Configuration
 
@@ -81,6 +82,34 @@ Optional keys:
 - `start()`: connect to main, send `Register`, enter heartbeat loop
 - `stop()`: send `Deregister`, close connection
 - `listNodes()`/`list_nodes()`: fetch node list from main
+
+## Unified RPC API (V1)
+
+All four SDKs expose aligned RPC concepts:
+
+- `Resolver`: resolve callable endpoints from registry data.
+  - default protocol filter: `grpc`
+  - metadata filters: `service.name`, `service.version`, `service.zone`
+- `RpcInvoker`: unary RPC by endpoint or by service (resolve + invoke)
+- `CallOptions`: timeout, retry policy, metadata headers
+- `RpcError` / `RpcErrorCode`: normalized error model
+
+### Node.js Only (TypeScript)
+
+- TypeScript SDK supports Node.js runtime only.
+- Browser runtime is explicitly unsupported in V1.
+
+### gRPC Error Mapping
+
+- `DEADLINE_EXCEEDED` -> `timeout`
+- `UNAVAILABLE` -> `unavailable`
+- `NOT_FOUND` -> `not_found`
+- `INVALID_ARGUMENT` -> `invalid_argument`
+- `INTERNAL` -> `internal`
+- `UNAUTHENTICATED` -> `unauthenticated`
+- `PERMISSION_DENIED` -> `permission_denied`
+- `CANCELLED` -> `cancelled`
+- others -> `unknown`
 
 ## Compatibility
 

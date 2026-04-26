@@ -86,6 +86,11 @@ impl RpcServerTrait for GrpcServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use std::time::Duration;
+    use tonic::Request;
+    use tonic_health::pb::health_check_response::ServingStatus;
+    use tonic_health::pb::{HealthCheckRequest, health_client::HealthClient};
 
     #[test]
     fn test_grpc_server_new() {
@@ -106,5 +111,53 @@ mod tests {
         let handle = server.shutdown_handle();
         server.shutdown().await.unwrap();
         assert!(Arc::strong_count(&handle) >= 1);
+    }
+
+    #[tokio::test]
+    async fn test_grpc_health_unary_e2e() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .unwrap();
+        let addr = listener.local_addr().unwrap();
+        drop(listener);
+
+        let server = Arc::new(GrpcServer::new(addr.to_string()));
+        let runner = server.clone();
+        let task = tokio::spawn(async move { runner.start().await });
+
+        let endpoint = format!("http://{addr}");
+        let mut client: Option<HealthClient<tonic::transport::Channel>> = None;
+        for _ in 0..30 {
+            let channel = tonic::transport::Channel::from_shared(endpoint.clone())
+                .expect("valid endpoint")
+                .connect()
+                .await;
+            match channel {
+                Ok(ch) => {
+                    client = Some(HealthClient::new(ch));
+                    break;
+                }
+                Err(_) => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        }
+
+        let mut client = client.expect("gRPC health client should connect");
+        let response = client
+            .check(Request::new(HealthCheckRequest {
+                service: "".to_string(),
+            }))
+            .await
+            .expect("health check should succeed");
+
+        assert_eq!(
+            response.into_inner().status,
+            ServingStatus::Serving as i32
+        );
+
+        server.shutdown().await.unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(2), task)
+            .await
+            .expect("server task should exit");
+        assert!(result.is_ok(), "server task should return Ok");
     }
 }

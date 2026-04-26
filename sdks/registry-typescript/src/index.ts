@@ -1,4 +1,5 @@
 import net from "node:net";
+import { assertNodeRuntime } from "./rpc.js";
 
 export type ConnectionState =
   | "DISCONNECTED"
@@ -43,6 +44,7 @@ export class RegistryClient {
   private waiters: Array<{ variant: string; resolve: (v: AnyJson) => void }> = [];
 
   constructor(config: RegistryClientConfig, registration: Registration) {
+    assertNodeRuntime();
     this.config = {
       mainAddress: config.mainAddress,
       clusterToken: config.clusterToken,
@@ -270,3 +272,5 @@ export class RegistryClient {
     return reg;
   }
 }
+
+export * from "./rpc.js";
